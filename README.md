@@ -1,7 +1,7 @@
 # Fermi-LAT-Binned-Analysis
 
-Module name: analysis<br/>
-Classes: <br/>
+##Module name: analysis<br/>
+###Classes: <br/>
        1) Analysis: superclass<br/>
        2) Iteration(Analysis)<br/>
        3) PyLikelihood(Iteration,Analysis)<br/>
