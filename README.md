@@ -4,11 +4,11 @@
 
 This repositroy contains the main analysis script that was used for the following studies:
 
-1. Fermi-LAT Observations of High-Energy Gamma-Ray Emission Toward the Galactic Center ([link](https://iopscience.iop.org/article/10.3847/0004-637X/819/1/44))
+1. *Fermi*-LAT Observations of High-Energy Gamma-Ray Emission Toward the Galactic Center ([link](https://iopscience.iop.org/article/10.3847/0004-637X/819/1/44))
 
-2. Dark Matter Interpretation of the Fermi-LAT Observation Toward the Galactic Center ([link](https://journals.aps.org/prd/abstract/10.1103/PhysRevD.95.103005))
+2. Dark Matter Interpretation of the *Fermi*-LAT Observation Toward the Galactic Center ([link](https://journals.aps.org/prd/abstract/10.1103/PhysRevD.95.103005))
 
-3. Fermi-LAT Observations of Gamma-Ray Emission Toward the Outer Halo of M31 ([link](https://iopscience.iop.org/article/10.3847/1538-4357/ab2880))
+3. *Fermi*-LAT Observations of Gamma-Ray Emission Toward the Outer Halo of M31 ([link](https://iopscience.iop.org/article/10.3847/1538-4357/ab2880))
 
 This module requires the Fermi Science Tools (available [here](https://fermi.gsfc.nasa.gov/ssc/data/analysis/software/)).
 
