@@ -1,6 +1,13 @@
 # Fermi-LAT Binned Analysis
 
-## Module name: 
+### Introduction
+
+This module requires the Fermi Science Tools (available [here](https://fermi.gsfc.nasa.gov/ssc/data/analysis/software/)).
+
+See the binned liklihood tutorial for more information (available [here](https://fermi.gsfc.nasa.gov/ssc/data/analysis/scitools/binned_likelihood_tutorial.html)).
+
+
+### Module name: 
        analysis_module
 
 ### Classes: <br/>
@@ -58,7 +65,4 @@
        4) Make a client code
                -This is a python script that specifies the neccessary functions to be called
                -The file client.py can be used as a template
-       5) If one is scanning over a given parameter, then make a loop file             
-               -This file is used to submit multiple jobs
-               -The file loop.py can be used as a template
 
