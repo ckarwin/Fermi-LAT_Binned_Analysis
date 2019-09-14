@@ -1,0 +1,3 @@
+#Each sublist should contain ~10-20 point sources, ordered from highest TS to lowest.
+
+[[],[],...]
