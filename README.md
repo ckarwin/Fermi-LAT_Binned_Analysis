@@ -1,4 +1,4 @@
-# Fermi-LAT_Binned_Analysis
+# Fermi-LAT Binned Analysis
 
 ## Module name: 
        analysis_module
