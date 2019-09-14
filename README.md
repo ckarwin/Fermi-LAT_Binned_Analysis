@@ -10,7 +10,9 @@ This repositroy contains the main analysis script that was used for the followin
 
 3. *Fermi*-LAT Observations of Gamma-Ray Emission Toward the Outer Halo of M31 ([link](https://iopscience.iop.org/article/10.3847/1538-4357/ab2880))
 
-This module requires the Fermi Science Tools (available [here](https://fermi.gsfc.nasa.gov/ssc/data/analysis/software/)).
+
+
+The module requires installation of the Fermi Science Tools (available [here](https://fermi.gsfc.nasa.gov/ssc/data/analysis/software/)).
 
 See the binned liklihood tutorial for more information (available [here](https://fermi.gsfc.nasa.gov/ssc/data/analysis/scitools/binned_likelihood_tutorial.html)).
 
