@@ -1,4 +1,4 @@
-# Fermi-LAT Binned Analysis
+# *Fermi*-LAT Binned Analysis
 
 ### Introduction
 
