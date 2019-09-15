@@ -10,7 +10,7 @@ This repository contains the main analysis script that was used for the followin
 
 The module requires installation of the Fermi Science Tools (available [here](https://fermi.gsfc.nasa.gov/ssc/data/analysis/software/)).
 
-The code provided here essentially streamlines the analysis procedure that's detailed in the binned likelihood tutorial (available [here](https://fermi.gsfc.nasa.gov/ssc/data/analysis/scitools/binned_likelihood_tutorial.html)). The code is easily generalizable, although it will require some modifications of input directories and files. 
+The code provided here streamlines the analysis procedure that's detailed in the binned likelihood tutorial (available [here](https://fermi.gsfc.nasa.gov/ssc/data/analysis/scitools/binned_likelihood_tutorial.html)). The code is easily generalizable, although it will require some modifications of input directories and files. 
 
 
 ### Module name: 
