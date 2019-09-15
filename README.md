@@ -2,7 +2,7 @@
 
 ### Introduction
 
-This repositroy contains the main analysis script that was used for the following studies:
+This repository contains the main analysis script that was used for the following studies:
 
 1. Dark Matter Interpretation of the *Fermi*-LAT Observation Toward the Galactic Center ([link](https://journals.aps.org/prd/abstract/10.1103/PhysRevD.95.103005))
 
