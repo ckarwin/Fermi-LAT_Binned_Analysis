@@ -188,15 +188,32 @@ class Analysis:
         likeBinned.run()
         return 		
 
-    #make model map
-    def model_map(self, src_file, xml_file, outfile, outtype): # outtype is either 'cmap' or 'ccube'
-		
+    def model_map(self, src_file, xml_file, ltcube, expmap, outfile, outtype):
+	
+        """Make model map, either 2d or 3d.
+        
+        Parameters
+        ----------
+        src_file : str
+            Input .src file. 
+        xml_file : str
+            Input model xml file. 
+        ltcube : str
+            Input ltcube. Can be for ROI or all-sky.
+        expmap : str
+            Input exposure map.
+        Outfile : str
+            Name of output model file. Include .fits extension. 
+        outtype : str
+            Either 'cmap' or 'ccube'
+        """
+
         my_apps.model_map['srcmaps'] = src_file
         my_apps.model_map['srcmdl'] = xml_file
         my_apps.model_map['outfile'] = outfile
         my_apps.model_map['irfs'] = self.irfs
-        my_apps.model_map['expcube'] = '%s%s_binned_ltcube.fits' % (self.path,self.name)
-        my_apps.model_map['bexpmap'] = '%s%s_binned_expMap.fits' % (self.path,self.name)
+        my_apps.model_map['expcube'] = ltcube
+        my_apps.model_map['bexpmap'] = expmap
         my_apps.model_map['outtype'] = outtype
         my_apps.model_map.run()
         return 'outfile'		
@@ -538,7 +555,7 @@ class Plots(Iteration):
         plt.savefig('counts.png')
         plt.close()
 	
-    def calculate_flux(self,model_file,exp_file,name,low,high):
+    def calculate_flux(self,model_file,exp_file,name):
 			
         print('Calculating flux for ' + model_file + '...')			
 
@@ -576,7 +593,7 @@ class Plots(Iteration):
                     #delta_E = (energy_A[E][2]/1000)-(energy_A[E][1]/1000) #for ccube
                     #energy = ((energy_A[E][2]/1000)*(energy_A[E][1]/1000))**0.5 #for ccube
                     this_energy = energy_A[E]['E_MIN']/1000 + delta_E #for writing ascii file
-                    energy_list_plot[E] = this_energy 
+                    energy_list_plot[E] = energy 
                     counts = tbdata_A[E][y][x]
                     time = (tbdata_B[E][int(exposure_y)][int(exposure_x)]*tbdata_B[E+1][int(exposure_y)][int(exposure_x)])**0.5
                     flux[E] = flux[E] + (counts/delta_E)*(energy**2)/time
@@ -625,13 +642,13 @@ class Plots(Iteration):
         print()		
 
 
-        camma_list = []
-        for each in flux:
-            camma_list.append(each)
-        f = open('ultimate_results.txt','a')
-        f.write('\n\n')
-        f.write(str(model_file) + ' = ' + str(camma_list))
-        f.close()
+        #camma_list = []
+        #for each in flux:
+        #    camma_list.append(each)
+        #f = open('ultimate_results.txt','a')
+        #f.write('\n\n')
+        #f.write(str(model_file) + ' = ' + str(camma_list))
+        #f.close()
 
 
         # use atropy to write an ascii file, i.e. .dat file:	
@@ -639,9 +656,9 @@ class Plots(Iteration):
         line_1 = "Total counts flux [ph/cm^2/s]: " + str(total_counts_flux) 
         line_2 = "Total energy flux [MeV/cm^2/s]: " + str(total_flux) 
 
-        data = Table({"Energy [MeV]":energy_list_plot,"energy_flux [MeV/cm^2/s]":flux,\
-                "counts_flux [ph/cm^2/s]":counts_flux, "differential_flux [ph/cm^2/s/MeV]":dN_dE},\
-                names=["Energy [MeV]","energy_flux [MeV/cm^2/s]","counts_flux [ph/cm^2/s]", "differential_flux [ph/cm^2/s/MeV]"])			
+        data = Table({"Energy[MeV]":energy_list_plot,"energy_flux[MeV/cm^2/s]":flux,\
+                "counts_flux[ph/cm^2/s]":counts_flux, "differential_flux[ph/cm^2/s/MeV]":dN_dE, "raw_counts[ph]":raw_counts},\
+                names=["Energy[MeV]","energy_flux[MeV/cm^2/s]","counts_flux[ph/cm^2/s]", "differential_flux[ph/cm^2/s/MeV]", "raw_counts[ph]"])			
         data.meta['comments'] = [line_1,line_2]	
         file_name = name + '_flux.dat'
         ascii.write(data, file_name, delimiter="\t")
@@ -988,3 +1005,68 @@ class Plots(Iteration):
         plt.savefig('%s_Residuals.png' % self.name )
         plt.show()
         plt.close()
+
+    def plot_skymap(self, input_fits, energy_bin, savefile,\
+            colorbar_label="Counts",\
+            xlabel="Galactic Longitude [deg]", \
+            ylabel="Galactic Latitude [deg]", \
+            title=None):
+
+        """Plot 2d skymap.
+
+        Parameters
+        ----------
+        input_fits : str
+            Input 3d FITS file. Either ccube or modelcube. 
+        energy_bin : int
+            Energy bin to plot. 
+        savefile : str
+            Name of output image file. Must include extension, 
+            e.g., .pdf, .png, etc. 
+        colorbar_label : str, optional
+            Name of label for colorbar. Default is 'Counts'.
+        xlabel : str, optional
+            Name of x-axis. Default is 'Galactic Longitude [deg]'.
+        ylabel : str, optional
+            Name of y-axis. Default is 'Galactic Latitude [deg]'.
+        title : str, optional
+            Name of plot title. Default is None. 
+        """
+        
+        # Open FITS file:
+        with pyfits.open(input_fits) as hdu:
+            data = hdu[0].data
+            header = hdu[0].header
+            ebounds = hdu["EBOUNDS"].data
+
+        print()
+        print("energy bounds:")
+        print(ebounds)
+        print()
+        print("this energy bin:")
+        print(ebounds[energy_bin])
+
+        image = data[energy_bin, :, :]
+        wcs_2d = WCS(header, naxis=2)
+
+        # Plot
+        fig = plt.figure(figsize=(8, 6))
+        ax = fig.add_subplot(111, projection=wcs_2d)
+
+        im = ax.imshow(image,origin="lower",cmap="inferno",interpolation="none")
+        cbar = plt.colorbar(im, ax=ax, pad=0.02)
+        cbar.set_label(colorbar_label, fontsize=12)
+
+        ax.set_xlabel(xlabel, fontsize=14)
+        ax.set_ylabel(ylabel, fontsize=14)
+        if title:
+            ax.set_title(title, fontsize=16)
+
+        ax.grid(color="grey", ls=":", alpha=0.5)
+
+        ax.tick_params(axis='both', which='major', labelsize=14)
+
+        plt.tight_layout()
+        plt.savefig(savefile)
+        plt.show()
+
