@@ -1,12 +1,12 @@
 #imports
-from analysis_module import Analysis
-from analysis_module import Plots
-from analysis_module import pyLikelihood
+from lat_binned_analysis import Analysis
+from lat_binned_analysis import Plots
+from lat_binned_analysis import pyLikelihood
 
 #define instance of class:
-iteration_instance = pyLikelihood('parameters.txt','TS.txt')
-instance = Analysis('parameters.txt','TS.txt')
-instance_plots = Plots('parameters.txt','TS.txt')
+iteration_instance = pyLikelihood('inputs.yaml')
+instance = Analysis('inputs.yaml')
+instance_plots = Plots('inputs.yaml')
 
 #uncomment to run desired function:
 #instance.gtselect()
