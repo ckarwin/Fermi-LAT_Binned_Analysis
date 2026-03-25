@@ -3,7 +3,7 @@ nxpix: 200
 nypix: 200
 xref: 121.1744
 yref: -21.5729
-binz: 0.2
+binsz: 0.2
 coordsys: GAL
 emin: 1000
 emax: 100000
