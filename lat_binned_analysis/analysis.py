@@ -29,7 +29,7 @@ class Analysis:
         self.nypix = int(inputs["nypix"])       # number of y pixels
         self.xref = float(inputs["xref"])       # center of roi (galactic longitude, l)
         self.yref = float(inputs["yref"])       # center of roi (galactic latitude, b)
-        self.binz = float(inputs["binz"])       # degrees per pixel
+        self.binsz = float(inputs["binsz"])       # degrees per pixel
         self.coordsys = inputs["coordsys"]      # coordinate system (Galactic coordinates)
         self.emin = inputs["emin"]              # min energy of analysis
         self.emax = inputs["emax"]              # max energy of analysis
@@ -51,9 +51,13 @@ class Analysis:
         self.z_max = inputs["z_max"]            # max zenith angle
         self.TS = inputs["TS"]                  # each sublist should contain ~10-20 point sources, ordered from highest TS to lowest.
 
-    #run gtselect (this essentially makes the zenith cut on the initial data)
     def gtselect(self):
-		
+	
+        """
+        Make selections on the data. Selections are based on inputs from 
+        yaml file.  
+        """
+        
         my_apps.filter['evclass'] = self.evclass
         my_apps.filter['ra'] = self.ROI_RA 
         my_apps.filter['dec'] = self.ROI_DEC 
@@ -63,26 +67,37 @@ class Analysis:
         my_apps.filter['zmax'] = self.z_max
         my_apps.filter['tmin'] = self.t_min
         my_apps.filter['tmax'] = self.t_max 
-        my_apps.filter['infile'] = '%s_binned_events.txt' % self.name
+        my_apps.filter['infile'] = self.infile
         my_apps.filter['evtype'] = self.evtype
         my_apps.filter['outfile'] =  '%s_binned_filtered.fits' % self.name
         my_apps.filter.run()
         return 'outfile'
 	
-    #maketime
-    def maketime(self):
+    def maketime(self, applied_filter='DATA_QUAL==1 && (LAT_CONFIG==1)'):
 
+        """
+        Selects good time intervals (gti) in which the satellite was working 
+        in standard data taking mode and the data quality was good. 
+
+        Parameters
+        ----------
+        applied_filter : str, optional
+            Filter to be applied. By default, we apply the filter 
+            recommended by LAT team: DATA_QUAL==1 && (LAT_CONFIG==1).
+        """
+        
         my_apps.maketime['scfile'] = self.scfile
         my_apps.maketime['roicut'] = 'no'
         my_apps.maketime['evfile'] = '%s_binned_filtered.fits' % self.name
         my_apps.maketime['outfile'] = '%s_binned_gti.fits' % self.name
-        my_apps.maketime['filter'] = 'DATA_QUAL==1 && (LAT_CONFIG==1)' 
+        my_apps.maketime['filter'] = applied_filter  
         my_apps.maketime.run()
         return 'outfile'
 
-    #make a 2D counts map
     def cmap(self):
-		
+	
+        """Make 2d counts map."""
+
         my_apps.counts_map['algorithm'] = 'CMAP'
         my_apps.counts_map['evfile'] = '%s_binned_gti.fits' % self.name
         my_apps.counts_map['outfile'] = '%s_cmap.fits' % self.name
@@ -96,10 +111,15 @@ class Analysis:
         my_apps.counts_map.run()
         return 'outfile'
 
-    #make a 3D counts map
-    #It is very important to change the number of pixels in this step!
     def ccube(self):
-		
+	
+        """
+        Make 3d counts map.
+
+        Note
+        ----
+        It is very important to change the number of pixels in this step!
+        """
         my_apps.counts_map['algorithm'] = 'CCUBE'
         my_apps.counts_map['evfile'] = '%s_binned_gti.fits' % self.name
         my_apps.counts_map['outfile'] = '%s_ccube.fits' % self.name
@@ -117,8 +137,9 @@ class Analysis:
         my_apps.counts_map.run()
         return 'outfile'
 
-    #generate livetime cube
     def expCube(self):
+        
+        """Generate livetime cube (i.e., ltcube)."""
 
         my_apps.expCube['evfile'] = '%s_binned_gti.fits' % self.name
         my_apps.expCube['scfile'] =  self.scfile
@@ -128,10 +149,10 @@ class Analysis:
         my_apps.expCube.run()
         return 'outfile'
 
-	
-    #generate exposure map(here we are just doing all-sky)
     def expMap(self):
-		
+	
+        """Generate exposure map. Here we are doing all-sky."""
+
         expMapBinned = GtApp('gtexpcube2' , 'Likelihood')
         expMapBinned.command()
 
@@ -152,9 +173,18 @@ class Analysis:
         expMapBinned.run()
         return 'outfile'
 
-    #generate source map
     def srcMaps(self, xml_file, outfile):
-
+        
+        """
+        Generate source map (i.e. src file).
+        
+        Parameters
+        ----------
+        xml_file : str
+            Input xml file with source model definitions.
+        outfile : str
+            Name of output src file. 
+        """
         srcMapsBinned = GtApp('gtsrcmaps' , 'Likelihood') 
         srcMapsBinned.command()
 
@@ -169,9 +199,18 @@ class Analysis:
         srcMapsBinned.run()
         return 'outfile'
 	
-    #run gtlike
     def run_gtlike(self, xml_file, outfile):
 
+        """
+        Run gtlike. 
+
+        Parameters
+        ----------
+        xml_file : str
+            Input xml file with source model definitions.
+        outfile : str
+            Name of output savefile.
+        """
         likeBinned = GtApp('gtlike' , 'Likelihood')
         likeBinned.command()
 
@@ -218,9 +257,22 @@ class Analysis:
         my_apps.model_map.run()
         return 'outfile'		
 	
-    #produce total residual map
-    def Residual_map(self, cmap, model, outfile, operation):
-		
+    def Residual_map(self, cmap, model, outfile, operation='minus'):
+        
+        """
+        Produce total residual map (2d).
+
+        Parameters
+        ---------
+        cmap : str
+            Input 2d counts map.
+        model : str
+            Input 2d model map.
+        outfile : str
+            Name of output FITS file.
+        operation : str, optional
+            Either 'minus' or 'plus'. Default is 'minus'.
+        """
 			
         hdulist_A = pyfits.open(cmap)
         cmap = hdulist_A[0].data
@@ -235,19 +287,28 @@ class Analysis:
                 if operation == 'plus':
                     model[y][x] = cmap[y][x] + model[y][x]
         hdulist_B.writeto(outfile)
-	
-	
-    # produce redisual maps in 3 energy bins
-    # 0-3 corresponds to 1.0 - 1.6 GeV
-    # 3-10 corresponds to 1.6 - 10 GeV
-    # 10-100 corresponds to 10 - 100 GeV
-	
-    # For M31:
-    # 0-6 corresponds to 300 MeV - 1.2 GeV
-    # 6-15 corresponds to 1.2 GeV - 9.5 GeV
-    # 15-30 corresponds to 9.5 GeV - 300 GeV
+		
     def Residual_Map2(self, cmap, model, ccube, modelcube):
+        
+        """
+        Produce residaul maps in energy bins. 
 
+        Parameters
+        ----------
+        cmap : str
+            Input 2d cmap. Used as template. 
+        model : str
+            Input 2d model map: Used as template.
+        ccube : str
+            Input 3d model cube.
+        modelcube : str
+            Input 3d model cube.
+
+        Note
+        ----
+        Currently, different energy bins are defined in code. 
+        Will refine this latter on. 
+        """
 		
         hdulist_A = pyfits.open(cmap)
         cmap = hdulist_A[0].data
@@ -297,7 +358,9 @@ class Analysis:
 	
     #match the size of the cmap to the model map for comparison in residual map
     def counts_map_small(self):
-		
+        """Match the size of the cmap to the model map for comparison 
+        in residual map.
+        """		
         my_apps.counts_map['algorithm'] = 'CMAP'
         my_apps.counts_map['evfile'] = '%s_binned_gti.fits' % self.name
         my_apps.counts_map['outfile'] = '%s_cmap_small.fits' % self.name
@@ -555,7 +618,7 @@ class Plots(Iteration):
         plt.savefig('counts.png')
         plt.close()
 	
-    def calculate_flux(self,model_file,exp_file,name):
+    def calculate_flux(self, model_file, exp_file, name):
 			
         print('Calculating flux for ' + model_file + '...')			
 
@@ -600,10 +663,6 @@ class Plots(Iteration):
                     dN_dE[E] = dN_dE[E] + (counts/delta_E)/time
                     counts_flux[E] = counts_flux[E] + counts/time
                     raw_counts[E] = raw_counts[E] + counts
-	    #print() 
-	    #print('Flux for this energy bin [MeV / cm^2 / s]')
-	    #print(flux[E])	
-	    #print()		
             x_error.append(delta_E)
         print()
         print('counts flux:')
@@ -641,17 +700,7 @@ class Plots(Iteration):
         print(total_counts_flux)
         print()		
 
-
-        #camma_list = []
-        #for each in flux:
-        #    camma_list.append(each)
-        #f = open('ultimate_results.txt','a')
-        #f.write('\n\n')
-        #f.write(str(model_file) + ' = ' + str(camma_list))
-        #f.close()
-
-
-        # use atropy to write an ascii file, i.e. .dat file:	
+        # Use atropy to write an ascii file, i.e. .dat file:	
 
         line_1 = "Total counts flux [ph/cm^2/s]: " + str(total_counts_flux) 
         line_2 = "Total energy flux [MeV/cm^2/s]: " + str(total_flux) 
