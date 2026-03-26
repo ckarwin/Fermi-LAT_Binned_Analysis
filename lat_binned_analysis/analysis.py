@@ -16,6 +16,7 @@ from astropy.wcs import WCS
 from astropy.io import ascii
 from astropy.table import Table
 import yaml
+from matplotlib.colors import LogNorm
 
 class Analysis:
 	
@@ -241,7 +242,7 @@ class Analysis:
             Input ltcube. Can be for ROI or all-sky.
         expmap : str
             Input exposure map.
-        Outfile : str
+        outfile : str
             Name of output model file. Include .fits extension. 
         outtype : str
             Either 'cmap' or 'ccube'
@@ -257,7 +258,7 @@ class Analysis:
         my_apps.model_map.run()
         return 'outfile'		
 	
-    def Residual_map(self, cmap, model, outfile, operation='minus'):
+    def residual_map(self, cmap, model, outfile, operation='minus'):
         
         """
         Produce total residual map (2d).
@@ -288,7 +289,7 @@ class Analysis:
                     model[y][x] = cmap[y][x] + model[y][x]
         hdulist_B.writeto(outfile)
 		
-    def Residual_Map2(self, cmap, model, ccube, modelcube):
+    def residual_map2(self, cmap, model, ccube, modelcube):
         
         """
         Produce residaul maps in energy bins. 
@@ -327,7 +328,9 @@ class Analysis:
         GC_bins_3 = [[0,5],[5,13],[13,20]] #1-3.2, 3.2-20.0,20.0-100	
         HE_defecit = [[0,13],[13,17],[17,20]]
         All = [[0,30]]
-        for sublist in GC_bins_3:
+        positrons = [[0,4],[4,19],[19,27]] # 300 MeV - 1.29 GeV, 1.29 GeV - 103.5 GeV, 103.5 GeV - 800 GeV
+
+        for sublist in positrons:
 
             for x in range(0,self.reduced_x):
                 for y in range(0,self.reduced_y):
@@ -349,20 +352,31 @@ class Analysis:
 
             for x in range(0,self.reduced_x):
                 for y in range(0,self.reduced_y):
-                    #model[x][y] = (cmap[x][y] - model[x][y]) #normal spatial residuals
-                    model[x][y] = (cmap[x][y] - model[x][y])/model[x][y] #for template map
+                    model[x][y] = (cmap[x][y] - model[x][y]) #normal spatial residuals
+                    #model[x][y] = (cmap[x][y] - model[x][y])/model[x][y] #for template map
 	
-        #name = self.name + '_' + str(sublist[0]) + '-' + str(sublist[1]) + '_residual.fits'
-        name = self.name + '_' + str(sublist[0]) + '-' + str(sublist[1]) + '_fractional_residual.fits'#for template map
-        hdulist_B.writeto(name)
+            #name = self.name + '_' + str(sublist[0]) + '-' + str(sublist[1]) + '_residual.fits'
+            name = self.name + '_' + str(sublist[0]) + '-' + str(sublist[1]) + '_fractional_residual.fits'#for template map
+            hdulist_B.writeto(name)
 	
-    #match the size of the cmap to the model map for comparison in residual map
-    def counts_map_small(self):
-        """Match the size of the cmap to the model map for comparison 
+    def counts_map_small(self, evfile=None):
+        
+        """
+        Match the size of the cmap to the model map for comparison 
         in residual map.
+
+        Parameters
+        ----------
+        evfile : str, optional
+            Input event file (output from maketime). Default is None, 
+            in which case the default file from the pipeline is used. 
         """		
+
+        if evfile == None:
+            evfile = '%s_binned_gti.fits' % self.name
+        
         my_apps.counts_map['algorithm'] = 'CMAP'
-        my_apps.counts_map['evfile'] = '%s_binned_gti.fits' % self.name
+        my_apps.counts_map['evfile'] = evfile
         my_apps.counts_map['outfile'] = '%s_cmap_small.fits' % self.name
         my_apps.counts_map['nxpix'] = self.reduced_x
         my_apps.counts_map['nypix'] = self.reduced_y
@@ -710,7 +724,7 @@ class Plots(Iteration):
                 names=["Energy[MeV]","energy_flux[MeV/cm^2/s]","counts_flux[ph/cm^2/s]", "differential_flux[ph/cm^2/s/MeV]", "raw_counts[ph]"])			
         data.meta['comments'] = [line_1,line_2]	
         file_name = name + '_flux.dat'
-        ascii.write(data, file_name, delimiter="\t")
+        ascii.write(data, file_name, delimiter="\t", overwrite=True)
 
         return total_counts_flux	 
 		
@@ -1055,10 +1069,11 @@ class Plots(Iteration):
         plt.show()
         plt.close()
 
-    def plot_skymap(self, input_fits, energy_bin, savefile,\
+    def plot_skymap(self, input_fits, savefile,\
+            plot_type="counts", energy_bin=0, input_dim=2, \
             colorbar_label="Counts",\
-            xlabel="Galactic Longitude [deg]", \
-            ylabel="Galactic Latitude [deg]", \
+            xlabel="Galactic Longitude [$\circ$]", \
+            ylabel="Galactic Latitude [$\circ$]", \
             title=None):
 
         """Plot 2d skymap.
@@ -1067,11 +1082,13 @@ class Plots(Iteration):
         ----------
         input_fits : str
             Input 3d FITS file. Either ccube or modelcube. 
-        energy_bin : int
-            Energy bin to plot. 
         savefile : str
             Name of output image file. Must include extension, 
-            e.g., .pdf, .png, etc. 
+            e.g., .pdf, .png, etc.
+        plot_type : str, optional
+            Either 'counts' or 'residuals'. Default is 'counts'.
+        energy_bin : int, optional
+            Energy bin to plot (default is 0).
         colorbar_label : str, optional
             Name of label for colorbar. Default is 'Counts'.
         xlabel : str, optional
@@ -1081,28 +1098,45 @@ class Plots(Iteration):
         title : str, optional
             Name of plot title. Default is None. 
         """
-        
+       
         # Open FITS file:
-        with pyfits.open(input_fits) as hdu:
-            data = hdu[0].data
-            header = hdu[0].header
+        hdu = pyfits.open(input_fits)
+        data = hdu[0].data
+        header = hdu[0].header
+
+        if input_dim == 3:
             ebounds = hdu["EBOUNDS"].data
 
-        print()
-        print("energy bounds:")
-        print(ebounds)
-        print()
-        print("this energy bin:")
-        print(ebounds[energy_bin])
+            print()
+            print("energy bounds:")
+            print(ebounds)
+            print()
+            print("this energy bin:")
+            print(ebounds[energy_bin])
 
-        image = data[energy_bin, :, :]
+            image = data[energy_bin, :, :]
+        
+        if input_dim == 2:
+            image = data[:, :]
+
         wcs_2d = WCS(header, naxis=2)
 
         # Plot
         fig = plt.figure(figsize=(8, 6))
         ax = fig.add_subplot(111, projection=wcs_2d)
 
-        im = ax.imshow(image,origin="lower",cmap="inferno",interpolation="none")
+        this_max = np.amax(image)
+    
+        if plot_type == "counts":
+            im = ax.imshow(image,origin="lower",cmap="inferno",\
+                norm=LogNorm(vmin=100,vmax=this_max),interpolation="none")
+            colorbar_label="Counts"
+
+        if plot_type == "residuals":
+            im = ax.imshow(image,origin="lower",cmap="seismic",\
+                vmin=-1*this_max, vmax=this_max, interpolation="none")
+            colorbar_label="data - model [counts]"
+
         cbar = plt.colorbar(im, ax=ax, pad=0.02)
         cbar.set_label(colorbar_label, fontsize=12)
 
