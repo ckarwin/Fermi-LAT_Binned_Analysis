@@ -632,8 +632,26 @@ class Plots(Iteration):
         plt.savefig('counts.png')
         plt.close()
 	
-    def calculate_flux(self, model_file, exp_file, name):
-			
+    def calculate_flux(self, model_file, exp_file, name, ccube=False):
+
+        """
+        Calculates flux from scratch based on input counts (model or observed) and exposure files.
+
+        Parameters
+        ----------
+        model_file : str
+            Input counts file (FITS). For model components, this is the model cube. 
+            For observed flux, this is the counts cube. 
+        exp_file : str
+            Input exposure file, i.e., binned exposure map. 
+        name : str
+            Prefix for output files.
+        ccube : bool, optional
+            Option to pass a counts cube (for observed flux). Default is False, 
+            in which case a model cube is assumed. For ccube from fermipy, 
+            make sure it's the file with '_00' extension. 
+        """
+
         print('Calculating flux for ' + model_file + '...')			
 
         w_model = WCS(model_file)
@@ -645,9 +663,10 @@ class Plots(Iteration):
         len_x = size[2]
         len_y = size[1]
         len_E = size[0]
-        energy_A = hdulist_A[2].data #for model cube
-        if 'ccube' in model_file:
-            energy_A = hdulist_A[1].data #for ccube
+        if ccube == True:
+            energy_A = hdulist_A[1].data # for ccube
+        else: 
+            energy_A = hdulist_A[2].data # for model cube
         hdulist_B = pyfits.open(exp_file)
         tbdata_B = hdulist_B[0].data
         flux = np.zeros(len_E)
@@ -665,11 +684,13 @@ class Plots(Iteration):
                     model_x, model_y = w_model.wcs_pix2world(x,y,0,0)[:-1]
                     exposure_x, exposure_y = w_exposure.wcs_world2pix(model_x,model_y,0,0)[:-1]
 
-                    delta_E = (energy_A[E]['E_MAX']/1000)-(energy_A[E]['E_MIN']/1000) #for model cube
-                    energy = ((energy_A[E]['E_MAX']/1000)*(energy_A[E]['E_MIN']/1000))**0.5 #for model cube
-                    #delta_E = (energy_A[E][2]/1000)-(energy_A[E][1]/1000) #for ccube
-                    #energy = ((energy_A[E][2]/1000)*(energy_A[E][1]/1000))**0.5 #for ccube
-                    this_energy = energy_A[E]['E_MIN']/1000 + delta_E #for writing ascii file
+                    if ccube == True: 
+                        delta_E = (energy_A[E][2]/1000)-(energy_A[E][1]/1000) # for ccube
+                        energy = ((energy_A[E][2]/1000)*(energy_A[E][1]/1000))**0.5 # for ccube
+                    else: 
+                        delta_E = (energy_A[E]['E_MAX']/1000)-(energy_A[E]['E_MIN']/1000) # for model cube
+                        energy = ((energy_A[E]['E_MAX']/1000)*(energy_A[E]['E_MIN']/1000))**0.5 # for model cube
+                    this_energy = energy_A[E]['E_MIN']/1000 + delta_E # for writing ascii file
                     energy_list_plot[E] = energy 
                     counts = tbdata_A[E][y][x]
                     time = (tbdata_B[E][int(exposure_y)][int(exposure_x)]*tbdata_B[E+1][int(exposure_y)][int(exposure_x)])**0.5
