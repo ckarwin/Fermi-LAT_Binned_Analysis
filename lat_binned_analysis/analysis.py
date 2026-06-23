@@ -632,7 +632,7 @@ class Plots(Iteration):
         plt.savefig('counts.png')
         plt.close()
 	
-    def calculate_flux(self, model_file, exp_file, name):
+    def calculate_flux(self, model_file, exp_file, name, filetype="ccube"):
 			
         print('Calculating flux for ' + model_file + '...')			
 
@@ -645,9 +645,8 @@ class Plots(Iteration):
         len_x = size[2]
         len_y = size[1]
         len_E = size[0]
-        energy_A = hdulist_A[2].data #for model cube
-        if 'ccube' in model_file:
-            energy_A = hdulist_A[1].data #for ccube
+        if filetype in ["fermipy_mcube", "ccube"]:
+            energy_A = hdulist_A[1].data 
         hdulist_B = pyfits.open(exp_file)
         tbdata_B = hdulist_B[0].data
         flux = np.zeros(len_E)
@@ -665,11 +664,14 @@ class Plots(Iteration):
                     model_x, model_y = w_model.wcs_pix2world(x,y,0,0)[:-1]
                     exposure_x, exposure_y = w_exposure.wcs_world2pix(model_x,model_y,0,0)[:-1]
 
-                    delta_E = (energy_A[E]['E_MAX']/1000)-(energy_A[E]['E_MIN']/1000) #for model cube
-                    energy = ((energy_A[E]['E_MAX']/1000)*(energy_A[E]['E_MIN']/1000))**0.5 #for model cube
-                    #delta_E = (energy_A[E][2]/1000)-(energy_A[E][1]/1000) #for ccube
-                    #energy = ((energy_A[E][2]/1000)*(energy_A[E][1]/1000))**0.5 #for ccube
-                    this_energy = energy_A[E]['E_MIN']/1000 + delta_E #for writing ascii file
+                    if filetype == "ccube":
+                        delta_E = (energy_A[E]['E_MAX']/1000)-(energy_A[E]['E_MIN']/1000)
+                        energy = ((energy_A[E]['E_MAX']/1000)*(energy_A[E]['E_MIN']/1000))**0.5
+                        this_energy = energy_A[E]['E_MIN']/1000 + delta_E #for writing ascii file
+                    if filetype == "fermipy_mcube":
+                        delta_E = (energy_A[E]['E_MAX'])-(energy_A[E]['E_MIN']) 
+                        energy = ((energy_A[E]['E_MAX'])*(energy_A[E]['E_MIN']))**0.5 
+                        this_energy = energy_A[E]['E_MIN'] + delta_E #for writing ascii file
                     energy_list_plot[E] = energy 
                     counts = tbdata_A[E][y][x]
                     time = (tbdata_B[E][int(exposure_y)][int(exposure_x)]*tbdata_B[E+1][int(exposure_y)][int(exposure_x)])**0.5
@@ -1070,8 +1072,8 @@ class Plots(Iteration):
         plt.close()
 
     def plot_skymap(self, input_fits, savefile,\
-            plot_type="counts", energy_bin=0, input_dim=2, \
-            colorbar_label="Counts",\
+            plot_type="counts", make_sum=False, energy_bin=0, input_dim=2, \
+            vmin=100, colorbar_label="Counts",\
             xlabel="Galactic Longitude [$\circ$]", \
             ylabel="Galactic Latitude [$\circ$]", \
             title=None):
@@ -1087,8 +1089,15 @@ class Plots(Iteration):
             e.g., .pdf, .png, etc.
         plot_type : str, optional
             Either 'counts' or 'residuals'. Default is 'counts'.
+        make_sum : bool, optional
+            Sums along the energy axis for 3d cubes. Only valid with 
+            input_dim=3. Default is False. 
         energy_bin : int, optional
             Energy bin to plot (default is 0).
+        input_dim : int, optional
+            Input dimension of input file (2 or 3). Default is 2. 
+        vmin : float, optional
+            Min value to use for color scale. Default is 100. 
         colorbar_label : str, optional
             Name of label for colorbar. Default is 'Counts'.
         xlabel : str, optional
@@ -1105,16 +1114,20 @@ class Plots(Iteration):
         header = hdu[0].header
 
         if input_dim == 3:
-            ebounds = hdu["EBOUNDS"].data
+            if make_sum == True:
+                print("summing over energy axis...")
+                image = data.sum(axis=0)
+            else: 
+                ebounds = hdu["EBOUNDS"].data
 
-            print()
-            print("energy bounds:")
-            print(ebounds)
-            print()
-            print("this energy bin:")
-            print(ebounds[energy_bin])
+                print()
+                print("energy bounds:")
+                print(ebounds)
+                print()
+                print("this energy bin:")
+                print(ebounds[energy_bin])
 
-            image = data[energy_bin, :, :]
+                image = data[energy_bin, :, :]
         
         if input_dim == 2:
             image = data[:, :]
@@ -1126,10 +1139,10 @@ class Plots(Iteration):
         ax = fig.add_subplot(111, projection=wcs_2d)
 
         this_max = np.amax(image)
-    
+         
         if plot_type == "counts":
             im = ax.imshow(image,origin="lower",cmap="inferno",\
-                norm=LogNorm(vmin=100,vmax=this_max),interpolation="none")
+                norm=LogNorm(vmin=vmin,vmax=this_max),interpolation="none")
             colorbar_label="Counts"
 
         if plot_type == "residuals":
