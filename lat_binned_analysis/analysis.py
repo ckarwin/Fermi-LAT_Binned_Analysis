@@ -289,40 +289,66 @@ class Analysis:
                     model[y][x] = cmap[y][x] + model[y][x]
         hdulist_B.writeto(outfile)
 		
-    def residual_map2(self, cmap, model, ccube, modelcube, mode == "diff"):
+    def residual_map2(self, cmap, model, ccube, modelcube, mode="diff",
+            bins=None, outdir="."):
         
         """
-        Produce residaul maps in energy bins. 
+        Produce residual maps in energy bins. 
 
         Parameters
         ----------
-        cmap : str
-            Input 2d cmap. Used as template. 
-        model : str
-            Input 2d model map: Used as template.
+        cmap : str or None
+            Input 2d cmap. Used as template for the output header and size. 
+            If None, the template is made from the ccube header.
+        model : str or None
+            Input 2d model map: Used as template. If None, the template is 
+            made from the ccube header.
         ccube : str
-            Input 3d model cube.
+            Input 3d counts cube.
         modelcube : str
             Input 3d model cube.
         mode : str, optional
-            'diff' for data - model; 'frac' for (data - model) / model
+            'diff' for data - model; 'frac' for (data - model) / model;
+            'sqrt' for (data - model) / sqrt(model). Default is 'diff'.
+        bins : list of [start, stop], optional
+            Energy-bin index ranges to sum (stop excluded). Default is
+            [[0,5],[5,12],[12,20]], i.e. 300 MeV - 1.28 GeV, 1.28 GeV - 9.79 GeV
+            and 9.79 GeV - 100 GeV for 300 MeV - 100 GeV with 8 bins per decade.
+        outdir : str, optional
+            Folder for the output FITS files. Default is the current folder.
+
+        Returns
+        -------
+        list of str
+            Output files, one per energy range: 
+            <name>_<start>-<stop>_residual.fits (diff), 
+            <name>_<start>-<stop>_fractional_residual.fits (frac) or
+            <name>_<start>-<stop>_sqrt_residual.fits (sqrt).
 
         Note
         ----
-        Currently, different energy bins are defined in code. 
-        Will refine this latter on. 
+        Pixels with model = 0 give inf or nan for 'frac' and 'sqrt'.
         """
-		
-        hdulist_A = pyfits.open(cmap)
-        cmap = hdulist_A[0].data
-        hdulist_B = pyfits.open(model)
-        model = hdulist_B[0].data
+
+        suffixes = {"diff": "_residual.fits",
+                    "frac": "_fractional_residual.fits",
+                    "sqrt": "_sqrt_residual.fits"}
+        if mode not in suffixes:
+            raise ValueError("mode must be 'diff', 'frac' or 'sqrt'")
+
         hdulist_C = pyfits.open(ccube)
         ccube = hdulist_C[0].data
         hdulist_D = pyfits.open(modelcube)
         modelcube = hdulist_D[0].data
 
-        energy = hdulist_C[1].data
+        # 2d template for the output files:
+        if cmap is None or model is None:
+            header = WCS(hdulist_C[0].header).celestial.to_header()
+            hdulist_B = pyfits.HDUList([pyfits.PrimaryHDU(
+                np.zeros(ccube.shape[1:]), header=header)])
+        else:
+            hdulist_B = pyfits.open(model)
+        model = hdulist_B[0].data
            
         M31_2 = [[0,10],[10,30]]
         M31_bins = [[0,10],[10,18],[18,30]] #300 MeV - 3 GeV, 3 GeV - 18.9 GeV, 18.9 GeV - 300 GeV
@@ -331,39 +357,32 @@ class Analysis:
         HE_defecit = [[0,13],[13,17],[17,20]]
         All = [[0,30]]
         positrons = [[0,5],[5,12],[12,20]] # 300 MeV - 1.28 GeV, 1.28 GeV - 9.79 GeV, 9.79 GeV - 100 GeV
+        if bins is None:
+            bins = positrons
 
-        for sublist in positrons:
+        nx, ny = self.reduced_x, self.reduced_y
+        outfiles = []
+        for sublist in bins:
 
-            for x in range(0,self.reduced_x):
-                for y in range(0,self.reduced_y):
-                    cmap[x][y] = 0
+            # Sum data and model over the energy range:
+            data_sum = ccube[sublist[0]:sublist[1], :nx, :ny].sum(axis=0)
+            model_sum = modelcube[sublist[0]:sublist[1], :nx, :ny].sum(axis=0)
 
-            for E in range(sublist[0],sublist[1]):
-                for x in range(0,self.reduced_x):
-                    for y in range(0,self.reduced_y):
-                        cmap[x][y] =  cmap[x][y] + ccube[E][x][y]
-           
-            for x in range(0,self.reduced_x):
-                for y in range(0,self.reduced_y):
-                    model[x][y] = 0
- 
-            for E in range(sublist[0],sublist[1]):
-                for x in range(0,self.reduced_x):
-                    for y in range(0,self.reduced_y):
-                        model[x][y] = model[x][y] + modelcube[E][x][y]
+            with np.errstate(divide="ignore", invalid="ignore"):
+                if mode == "diff":
+                    resid = data_sum - model_sum #normal spatial residuals
+                if mode == "frac":
+                    resid = (data_sum - model_sum)/model_sum #for template map
+                if mode == "sqrt":
+                    resid = (data_sum - model_sum)/np.sqrt(model_sum)
 
-            for x in range(0,self.reduced_x):
-                for y in range(0,self.reduced_y):
-                    if mode == "diff":
-                        model[x][y] = (cmap[x][y] - model[x][y]) #normal spatial residuals
-                    if mode == "frac":
-                        model[x][y] = (cmap[x][y] - model[x][y])/model[x][y] #for template map
-	
-            if mode == "diff":
-                name = self.name + '_' + str(sublist[0]) + '-' + str(sublist[1]) + '_residual.fits'
-            if mode == "frac":
-                name = self.name + '_' + str(sublist[0]) + '-' + str(sublist[1]) + '_fractional_residual.fits'#for template map
-            hdulist_B.writeto(name)
+            model[:nx, :ny] = resid
+            name = self.name + '_' + str(sublist[0]) + '-' + str(sublist[1]) + suffixes[mode]
+            name = os.path.join(outdir, name)
+            hdulist_B.writeto(name, overwrite=True)
+            outfiles.append(name)
+
+        return outfiles
 	
     def counts_map_small(self, evfile=None):
         
@@ -1105,7 +1124,8 @@ class Plots(Iteration):
         vmin : float, optional
             Min value to use for color scale. Default is 100. 
         colorbar_label : str, optional
-            Name of label for colorbar. Default is 'Counts'.
+            Name of label for colorbar. Default is 'Counts' ('data - model 
+            [counts]' for plot_type='residuals'). Ignored for 'counts'.
         xlabel : str, optional
             Name of x-axis. Default is 'Galactic Longitude [deg]'.
         ylabel : str, optional
@@ -1144,7 +1164,7 @@ class Plots(Iteration):
         fig = plt.figure(figsize=(8, 6))
         ax = fig.add_subplot(111, projection=wcs_2d)
 
-        this_max = np.amax(image)
+        this_max = np.amax(image[np.isfinite(image)]) # ignore inf/nan pixels
          
         if plot_type == "counts":
             im = ax.imshow(image,origin="lower",cmap="inferno",\
@@ -1154,7 +1174,8 @@ class Plots(Iteration):
         if plot_type == "residuals":
             im = ax.imshow(image,origin="lower",cmap="seismic",\
                 vmin=-1*this_max, vmax=this_max, interpolation="none")
-            colorbar_label="data - model [counts]"
+            if colorbar_label == "Counts":
+                colorbar_label="data - model [counts]"
 
         cbar = plt.colorbar(im, ax=ax, pad=0.02)
         cbar.set_label(colorbar_label, fontsize=12)
