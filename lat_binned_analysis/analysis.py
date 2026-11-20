@@ -289,7 +289,7 @@ class Analysis:
                     model[y][x] = cmap[y][x] + model[y][x]
         hdulist_B.writeto(outfile)
 		
-    def residual_map2(self, cmap, model, ccube, modelcube):
+    def residual_map2(self, cmap, model, ccube, modelcube, mode == "diff"):
         
         """
         Produce residaul maps in energy bins. 
@@ -304,6 +304,8 @@ class Analysis:
             Input 3d model cube.
         modelcube : str
             Input 3d model cube.
+        mode : str, optional
+            'diff' for data - model; 'frac' for (data - model) / model
 
         Note
         ----
@@ -328,7 +330,7 @@ class Analysis:
         GC_bins_3 = [[0,5],[5,13],[13,20]] #1-3.2, 3.2-20.0,20.0-100	
         HE_defecit = [[0,13],[13,17],[17,20]]
         All = [[0,30]]
-        positrons = [[0,4],[4,19],[19,27]] # 300 MeV - 1.29 GeV, 1.29 GeV - 103.5 GeV, 103.5 GeV - 800 GeV
+        positrons = [[0,5],[5,12],[12,20]] # 300 MeV - 1.28 GeV, 1.28 GeV - 9.79 GeV, 9.79 GeV - 100 GeV
 
         for sublist in positrons:
 
@@ -352,11 +354,15 @@ class Analysis:
 
             for x in range(0,self.reduced_x):
                 for y in range(0,self.reduced_y):
-                    model[x][y] = (cmap[x][y] - model[x][y]) #normal spatial residuals
-                    #model[x][y] = (cmap[x][y] - model[x][y])/model[x][y] #for template map
+                    if mode == "diff":
+                        model[x][y] = (cmap[x][y] - model[x][y]) #normal spatial residuals
+                    if mode == "frac":
+                        model[x][y] = (cmap[x][y] - model[x][y])/model[x][y] #for template map
 	
-            #name = self.name + '_' + str(sublist[0]) + '-' + str(sublist[1]) + '_residual.fits'
-            name = self.name + '_' + str(sublist[0]) + '-' + str(sublist[1]) + '_fractional_residual.fits'#for template map
+            if mode == "diff":
+                name = self.name + '_' + str(sublist[0]) + '-' + str(sublist[1]) + '_residual.fits'
+            if mode == "frac":
+                name = self.name + '_' + str(sublist[0]) + '-' + str(sublist[1]) + '_fractional_residual.fits'#for template map
             hdulist_B.writeto(name)
 	
     def counts_map_small(self, evfile=None):
